@@ -1,17 +1,20 @@
 classdef adinkra
-    %ADINKRA Creates an object representation of an adinkra and performs
-    %necessary calculations on the adinkra.
-    %%%%%%%%%%%%   Detailed explanation goes here
+    %ADINKRA Creates an object representation of an adinkra
     
     properties
-        ADJMatrix    %The Vertex-edge incidence matrix of the adinkra, with 
-                    %different numbers indicating different colors
-        nodes      %The total number of nodes
-        open       %The number of open nodes
-        closed     %The number of closed nodes
-        colors     %The number of colors of the adinkra
-        LMatrices  %A 3-dimensional array containing the L-matrices of each color.  LMatrices(:,:,n) is the LMatrix of the n'th color.
-        hand %0 means left-handed (i.e. even # of colors, Banchoff matrix has values in the top LEFT), 1 means right-handed (odd # of colors)
+        ADJMatrix   %The adjacency matrix of the adinkra, with 
+                    %different numbers indicating different colors and
+                    %negatives indicating dashed edges
+        nodes       %The total number of nodes
+        open        %The number of open nodes
+        closed      %The number of closed nodes
+        colors      %The number of colors of the adinkra
+        LMatrices   %A 3-dimensional array containing the L-matrices of 
+                    %each color.  LMatrices(:,:,n) is the LMatrix of the 
+                    %n'th color.
+        hand        %0 means left-handed (i.e. even # of colors, Banchoff 
+                    %matrix has values in the top LEFT), 1 means 
+                    %right-handed (odd # of colors)
     end
     
     methods
@@ -51,8 +54,9 @@ classdef adinkra
         
         function M = liftMatrix(a,m,w)
             %LIFTMATRIX creates a node-lifting operator with m as
-            %the coefficient and w as the word parameter describing the number of lifted nodes.
-            %The operator has size appropriate for the adinkra a.
+            %the coefficient and w as the word parameter describing the
+            %number of lifted nodes.
+            %The operator has dimensions appropriate for the adinkra a.
             d=a.open;
             M = sym('noderaisingOp',[d,d]);
             M = M*0;
@@ -67,7 +71,7 @@ classdef adinkra
             end
         end
         
-        function newL = LTilde(a,color,M) %Defunct
+        function newL = LTilde(a,color,M) %DEFUNCT
             %LTILDE creates the tilded L-matrix as defined in eq.4.6 of the
             %adinkra a for the color, with m as the coefficient and w being
             %the word operator corresponding to the number of lifted nodes.
@@ -75,7 +79,7 @@ classdef adinkra
             newL = M*L;
         end
         
-        function newR = RTilde(a,color,M) %Defunct
+        function newR = RTilde(a,color,M) %DEFUNCT
             %RTILDE creates a tilded R-matrix as defined in eq.4.6 for the
             %adinkra a, color, n as the coefficients, and w as the number
             %of raised nodes.  This matrix is equivalent to the transpose
@@ -94,8 +98,8 @@ classdef adinkra
             d=a.nodes/2;
             cmatr = sym('cmatr',[d,d]);
             cmatr = cmatr*0;
-            cmatr(1:d,(d+1):2*d)=Bm*a.LMatrices(:,:,color);    %LTilde(a,color,Bm);
-            cmatr((d+1):2*d,1:d)=(Bn*a.LMatrices(:,:,color)).';  %RTilde(a,color,Bn);
+            cmatr(1:d,(d+1):2*d)=Bm*a.LMatrices(:,:,color);    
+            cmatr((d+1):2*d,1:d)=(Bn*a.LMatrices(:,:,color)).';
         end
         
         function bmatr = Banchoff(a,m,n,w)
@@ -113,18 +117,18 @@ classdef adinkra
         
         function eigs = HYMNs(a,w)
             %HYMNS makes a Banchoff matrix with the symbolic values m, n,
-            %and r=m/n, then calculates the eigenvalues of the desired part
-            %of the matrix, according to the type of adinkra.
+            %and r=m/n, then calculates the eigenvalues of the desired
+            %parts of the matrix, depending on the type of adinkra.
             m=sym('m');
             r=sym('r');
             n=m/r;
             B=Banchoff(a,m,n,w);
             d=size(B,1)/2;
-            if (a.hand==0) %Then we want the eigenvalues of the top left and bottom right corners
+            if (a.hand==0) %want the eigenvalues of the top left and bottom right corners
                 eigs=sym('eigs',[2*d,1]);
                 eigs(1:d,1)=eig(B(1:d,1:d)); %Top left corner
                 eigs(d+1:2*d,1)=eig(B(d+1:2*d,d+1:2*d)); %Bottom right corner
-            else %Then we want the eigenvalues of TR*BL and BL*TR
+            else %want the eigenvalues of TR*BL and BL*TR
                 eigs=sym('eigs',[d,2]);
                 eigs(:,1)=eig(B(1:d,d+1:2*d)*B(d+1:2*d,1:d)); %TR*BL corners
                 eigs(:,2)=eig(B(d+1:2*d,1:d)*B(1:d,d+1:2*d)); %BL*TR corners
@@ -135,22 +139,23 @@ classdef adinkra
         function eigs = DashlessHYMNs(a,w)
             %DASHLESSHYMNS creates an adinkra without dashings, then
             %calculates the HYMNs.
-            m=sym('m');
-            r=sym('r');
-            n=m/r;
             b=adinkra(abs(a.ADJMatrix));
-            B=Banchoff(b,m,n,w);
-            d=size(B,1)/2;
-            if (a.hand==0) %TL and BR
-                eigs=sym('eigs',[2*d,1]);
-                eigs(1:d,1)=eig(B(1:d,1:d));
-                eigs(d+1:2*d,1)=eig(B(d+1:2*d,d+1:2*d));
-            else %TR and BL
-                eigs=sym('eigs',[d,2]);
-                eigs(:,1)=eig(B(1:d,d+1:2*d)*B(d+1:2*d,1:d)); %(1:a.open,1)
-                eigs(:,2)=eig(B(d+1:2*d,1:d)*B(1:d,d+1:2*d));
+            eigs = HYMNs(b,w);
+            %m=sym('m');
+            %r=sym('r');
+            %n=m/r;
+            %B=Banchoff(b,m,n,w);
+            %d=size(B,1)/2;
+            %if (a.hand==0) %TL and BR
+            %    eigs=sym('eigs',[2*d,1]);
+            %    eigs(1:d,1)=eig(B(1:d,1:d));
+            %    eigs(d+1:2*d,1)=eig(B(d+1:2*d,d+1:2*d));
+            %else %TR and BL
+            %    eigs=sym('eigs',[d,2]);
+            %    eigs(:,1)=eig(B(1:d,d+1:2*d)*B(d+1:2*d,1:d)); %(1:a.open,1)
+            %    eigs(:,2)=eig(B(d+1:2*d,1:d)*B(1:d,d+1:2*d));
                 %eigs(a.open+1:a.nodes,1)=eig(BL(a,B));
-            end
+            %end
         end
     end
 end
