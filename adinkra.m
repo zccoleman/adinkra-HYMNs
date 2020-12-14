@@ -54,47 +54,64 @@ classdef adinkra
         
         function M = liftMatrix(a,m,w)
             %LIFTMATRIX creates a node-lifting operator with m as
-            %the coefficient and w as the word parameter describing the
-            %number of lifted nodes.
-            %The operator has dimensions appropriate for the adinkra a.
+            %the coefficient and a varaiable number of word parameters.
+            %If multiple word parameters are specified, a node-lifting
+            %operator is created for each one, and their product is
+            %returned (order does not matter since all are diagonal).
+            %The final operator has dimensions appropriate for the adinkra a.
             d=a.open;
+            W=size(w,2);
             M = sym('noderaisingOp',[d,d]);
             M = M*0+eye(d);
-            if w>(2^d-1)
-                M=M*m;
-                bin=w-(2^d-1);
-            else
-                bin=w;
-            end
-            for i=(d-1):(-1):0
-                if (bin>=2^i)
-                    M(i+1,i+1)=M(i+1,i+1)*m;
-                    bin=bin-2^i;
-                %else
-                %    M(i+1,i+1)=1;
+            for i=1:W
+                bin=w(i);
+                for j=(d-1):(-1):0
+                    if (bin>=2^j)
+                        M(j+1,j+1)=M(j+1,j+1)*m;
+                        bin=bin-2^j;
+                    %else
+                    %    M(i+1,i+1)=1;
+                    end
                 end
             end
         end
         
-        function newL = LTilde(a,color,mb,mf,wb,wb2,wf)
+        
+        function newL = LTilde(a,color,mb,mf,wb,wf)
             %LTILDE creates the tilded L-matrix as defined in eq.4.6 of the
             %adinkra a for the color, with m as the coefficient and w being
             %the word operator corresponding to the number of lifted nodes.
             L = a.LMatrices(:,:,color);
-            newL = liftMatrix(a,mb,wb2)*liftMatrix(a,mb,wb)*L*liftMatrix(a,1/mf,wf);
+            %s=size(varargin,2);
+            %wb=zeros(s/2);
+            %wf=zeros(s/2);
+            %for i=1:s
+            %    if (mod(i,2)==1)
+            %        wb(fix(i/s)+1)=varargin{i};
+            %    else
+            %        wf(i/2)=varargin{i};
+            %    end
+            %end
+            newL = liftMatrix(a,mb,wb)*L*liftMatrix(a,1/mf,wf);
         end
         
-        function newR = RTilde(a,color,mub,muf,wb,wb2,wf)
+        
+        function newR = RTilde(a,color,mub,muf,wb,wf)
             %RTILDE creates a tilded R-matrix as defined in eq.4.6 for the
             %adinkra a, color, n as the coefficients, and w as the number
             %of raised nodes.  This matrix is equivalent to the transpose
             %of the tilded L-matrix with n = m^{-1}.
             R=a.LMatrices(:,:,color).';
-            newR=liftMatrix(a,muf,wf)*R*liftMatrix(a,1/mub,wb)*liftMatrix(a,1/mub,wb2);
+            %s=size(varargin,2);
+            %wb=zeros(s/2);
+            %wf=zeros(s/2);
+
+            newR=liftMatrix(a,muf,wf)*R*liftMatrix(a,1/mub,wb);
 
         end
         
-        function cmatr = CBlock(a,color,mb,mub,wb,wb2,mf,muf,wf)
+        
+        function cmatr = CBlock(a,color,mb,mub,mf,muf,wb,wf)
             %CBLOCK returns a "color matrix", which has zeros in the top
             %left and bottom right corners, and the L and R matrices in the
             %top right and bottom left corners respectively.  Input takes
@@ -104,32 +121,49 @@ classdef adinkra
             d=a.nodes/2;
             cmatr = sym('cmatr',[d,d]);
             cmatr = cmatr*0;
-            cmatr(1:d,(d+1):2*d)=LTilde(a,color,mb,mf,wb,wb2,wf);       %Bm*a.LMatrices(:,:,color);    
-            cmatr((d+1):2*d,1:d)=RTilde(a,color,mub,muf,wb,wb2,wf);     %(Bn*a.LMatrices(:,:,color)).';
+            cmatr(1:d,(d+1):2*d)=LTilde(a,color,mb,mf,wb,wf);       %Bm*a.LMatrices(:,:,color);    
+            cmatr((d+1):2*d,1:d)=RTilde(a,color,mub,muf,wb,wf);     %(Bn*a.LMatrices(:,:,color)).';
         end
         
-        function bmatr = Banchoff(a,mb,mub,wb,wb2,mf,muf,wf)
+        
+        function bmatr = Banchoff(a,mb,mub,mf,muf,wb,wf)
             %BANCHOFF creates the Banchoff matrix for the adinkra using the
             %lifting coefficients m and n and the word parameter w.
             I=a.colors;
-            bmatr=CBlock(a,I,mb,mub,wb,wb2,mf,muf,wf);
+            bmatr=CBlock(a,I,mb,mub,mf,muf,wb,wf);
             for i=(I-1):-1:1
-                bmatr=bmatr*CBlock(a,i,mb,mub,wb,wb2,mf,muf,wf);
+                bmatr=bmatr*CBlock(a,i,mb,mub,mf,muf,wb,wf);
             end
         end
         
         
-        function eigs = HYMNs(a,wb,wb2,wf)
+        function eigs = HYMNs(a,varargin)
             %HYMNS makes a Banchoff matrix with the symbolic values m, n,
             %and r=m/n, then calculates the eigenvalues of the desired
-            %parts of the matrix, depending on the type of adinkra.
+            %parts of the matrix, depending on the type of adinkra.  Input
+            %is the adinkra a followed by a list of word parameters.  There
+            %must be an even number of word parameters.  They alternate
+            %between bosonic and fermionic, starting from the first, which
+            %should be bosonic.  Additional arguments of 0 do nothing (but
+            %are sometimes necessary to ensure an even-sized list).
             mb=sym('mb');
             rhoB=sym('rhoB');
             mub=mb/rhoB;
             muf=sym('muf');
             rhoF=sym('rhoF');
             mf=muf/rhoF;
-            B=Banchoff(a,mb,mub,wb,wb2,mf,muf,wf);
+            s=size(varargin,2);
+            wb=zeros(1,s/2);
+            wf=zeros(1,s/2);
+            for i=1:s
+                if (mod(i,2)==1)
+                    wb(fix(i/2)+1)=varargin{i};
+                else
+                    wf(i/2)=varargin{i};
+                end
+            end
+            
+            B=Banchoff(a,mb,mub,mf,muf,wb,wf);
             d=size(B,1)/2;
             if (a.hand==0) %want the eigenvalues of the top left and bottom right corners
                 eigs=sym('eigs',[2*d,1]);
@@ -142,6 +176,7 @@ classdef adinkra
                 %eigs(a.open+1:a.nodes,1)=eig(BL(a,B));
             end
         end
+        
         
         function eigs = DashlessHYMNs(a,wb,wb2,wf)
             %DASHLESSHYMNS creates an adinkra without dashings, then
@@ -164,6 +199,8 @@ classdef adinkra
                 %eigs(a.open+1:a.nodes,1)=eig(BL(a,B));
             %end
         end
+        
+        
     end
 end
 
